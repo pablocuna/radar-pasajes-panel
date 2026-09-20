@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar de pasajes</title>
+<meta name="description" content="Panel personal para vigilar precios de pasajes de avión.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2346C8">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cielo: #2346C8;
+  --cielo-hondo: #18339A;
+  --papel: #F7F9FD;
+  --papel-2: #EAEFF8;
+  --tinta: #0F1B3D;
+  --tinta-suave: #56627F;
+  --linea: #D3DAEA;
+  --senal: #FF6B1A;
+  --senal-hondo: #E4570B;
+  --pista: #127A4B;
+  --pista-claro: #DCF3E7;
+  --peligro: #B42318;
+  --peligro-claro: #FDE8E6;
+  --flap: #121A33;
+  --flap-txt: #F4F6FB;
+  --sobre-cielo: #FFFFFF;
+  --sobre-cielo-suave: rgba(255,255,255,.78);
+  --radio-pase: 18px;
+  --radio-ctrl: 10px;
+  --sombra: 0 1px 0 rgba(15,27,61,.06), 0 18px 30px -22px rgba(4,14,60,.75);
+  --fuente: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fuente-alta: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cielo: #0E1C58;
+    --cielo-hondo: #091441;
+    --papel: #16214A;
+    --papel-2: #1F2C5B;
+    --tinta: #EEF2FB;
+    --tinta-suave: #A9B4D0;
+    --linea: #2E3C70;
+    --pista: #45D993;
+    --pista-claro: #12392A;
+    --peligro: #FF8B7B;
+    --peligro-claro: #3B1B1E;
+    --flap: #070C1F;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--cielo);
+  color: var(--tinta);
+  font-family: var(--fuente);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--senal); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- controles ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45em;
+  min-height: 44px; padding: 0 16px;
+  border-radius: var(--radio-ctrl); border: 1.5px solid transparent;
+  font-weight: 600; font-size: 15px; text-decoration: none; cursor: pointer;
+  background: transparent; white-space: nowrap;
+}
+.btn:disabled { opacity: .55; cursor: progress; }
+.btn-senal { background: var(--senal); color: #10193A; }
+.btn-senal:hover:not(:disabled) { background: var(--senal-hondo); }
+.btn-borde { border-color: var(--linea); color: var(--tinta); background: var(--papel); }
+.btn-borde:hover { border-color: var(--tinta-suave); }
+.btn-texto { padding: 0 10px; color: var(--tinta-suave); }
+.btn-texto:hover { color: var(--tinta); }
+.btn-peligro { color: var(--peligro); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+
+label.campo { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--tinta); }
+label.campo small { font-weight: 400; color: var(--tinta-suave); }
+.entrada {
+  width: 100%; min-height: 46px; padding: 10px 12px;
+  border-radius: 8px; border: 1.5px solid var(--linea);
+  background: var(--papel); color: var(--tinta); font-weight: 500;
+}
+.entrada:focus { border-color: var(--cielo); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--cielo) 25%, transparent); }
+.entrada.iata { font-family: var(--fuente-alta); font-size: 26px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.entrada[aria-invalid="true"] { border-color: var(--peligro); }
+
+/* ---------- conexión ---------- */
+.conexion { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.conexion .pase { max-width: 560px; width: 100%; grid-template-columns: 1fr; }
+.conexion form { display: grid; gap: 16px; padding: 28px; }
+.conexion h1 { font-family: var(--fuente-alta); font-size: 40px; line-height: 1; margin: 0; letter-spacing: .01em; }
+.conexion p { margin: 0; color: var(--tinta-suave); max-width: 44ch; }
+.nota { font-size: 14px; color: var(--tinta-suave); }
+
+/* ---------- cabecera ---------- */
+.cabecera {
+  color: var(--sobre-cielo);
+  padding: calc(env(safe-area-inset-top) + 18px) 20px 18px;
+  max-width: 1080px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center;
+}
+.marca { display: flex; align-items: center; gap: 10px; font-family: var(--fuente-alta); font-weight: 700; font-size: 30px; line-height: 1; letter-spacing: .01em; }
+.marca svg { width: 34px; height: 34px; flex: none; }
+.estado-run { grid-column: 1; font-size: 14px; color: var(--sobre-cielo-suave); display: flex; align-items: center; gap: 8px; min-height: 20px; }
+.estado-run .punto { width: 8px; height: 8px; border-radius: 50%; background: #7CF0B4; flex: none; }
+.estado-run .punto.mal { background: #FF9C8C; }
+.estado-run .punto.activo { background: var(--senal); animation: latido 1.2s ease-in-out infinite; }
+@keyframes latido { 50% { opacity: .25; } }
+.cabecera .btn-senal { grid-column: 2; grid-row: 1 / span 2; }
+.corto { display: none; }
+@media (max-width: 440px) { .largo { display: none; } .corto { display: inline; } }
+
+.pista {
+  height: 4px; max-width: 1080px; margin: 0 auto;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 26px, transparent 26px 48px);
+}
+
+/* ---------- pestañas ---------- */
+.pestanas { max-width: 1080px; margin: 0 auto; padding: 14px 20px 0; display: flex; gap: 6px; }
+.pestana {
+  min-height: 42px; padding: 0 16px; border-radius: 999px; border: 0; cursor: pointer;
+  background: transparent; color: var(--sobre-cielo-suave); font-weight: 600;
+}
+.pestana[aria-selected="true"] { background: var(--sobre-cielo); color: #10193A; }
+.pestana .ico { display: none; }
+
+main { max-width: 1080px; margin: 0 auto; padding: 18px 20px 48px; }
+.titulo-seccion { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--sobre-cielo); margin: 4px 0 16px; }
+.titulo-seccion h2 { font-family: var(--fuente-alta); font-size: 26px; font-weight: 600; margin: 0; }
+.titulo-seccion .btn-borde { background: transparent; color: var(--sobre-cielo); border-color: rgba(255,255,255,.45); }
+
+/* ---------- tarjeta de embarque ---------- */
+.pases { display: grid; gap: 22px; }
+.pase {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) 250px;
+  background: var(--papel); border-radius: var(--radio-pase); box-shadow: var(--sombra);
+}
+.pase.pausada .pase-cuerpo, .pase.pausada .pase-talon > :not(.chip) { opacity: .55; }
+.pase-cuerpo { padding: 20px 22px 16px; min-width: 0; }
+.pase-sup { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pase-nombre { font-weight: 600; color: var(--tinta-suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--papel-2); color: var(--tinta-suave); white-space: nowrap; }
+.chip.ok { background: var(--pista-claro); color: var(--pista); }
+.chip.mal { background: var(--peligro-claro); color: var(--peligro); }
+
+.ruta { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; margin: 10px 0 14px; }
+.aeropuerto { display: grid; min-width: 0; }
+.aeropuerto.dcha { text-align: right; }
+.iata { font-family: var(--fuente-alta); font-weight: 700; font-size: clamp(44px, 9vw, 64px); line-height: .9; letter-spacing: .02em; }
+.ciudad { font-size: 14px; color: var(--tinta-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 24ch; }
+.aeropuerto.dcha .ciudad { justify-self: end; }
+@media (max-width: 720px) { .ciudad { max-width: 15ch; } }
+.trayecto { position: relative; height: 24px; }
+.trayecto::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed var(--linea); }
+.trayecto svg { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; transform: translate(-50%, -50%); color: var(--cielo); background: var(--papel); padding: 0 3px; box-sizing: content-box; }
+@media (prefers-color-scheme: dark) { .trayecto svg { color: #8FA8FF; } }
+
+.datos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 16px; margin: 0; padding: 14px 0; border-top: 1px solid var(--linea); }
+.datos div { min-width: 0; }
+.datos dt { font-size: 12.5px; color: var(--tinta-suave); }
+.datos dd { margin: 2px 0 0; font-weight: 600; font-size: 15px; }
+.acciones { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px -10px 0; }
+
+.pase-talon {
+  position: relative; padding: 20px 22px;
+  border-left: 2px dashed var(--linea);
+  display: flex; flex-direction: column; justify-content: center; gap: 8px;
+}
+.pase-talon::before, .pase-talon::after {
+  content: ""; position: absolute; left: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--cielo);
+}
+.pase-talon::before { top: -12px; }
+.pase-talon::after { bottom: -12px; }
+.talon-bloque { display: grid; gap: 6px; justify-items: start; }
+.talon-titulo { font-size: 13px; color: var(--tinta-suave); }
+.talon-moneda { font-family: var(--fuente-alta); font-weight: 600; font-size: 18px; color: var(--tinta-suave); line-height: 1; }
+.talon-linea { font-size: 13.5px; color: var(--tinta-suave); }
+.talon-linea strong { color: var(--tinta); font-weight: 600; }
+.talon-vacio { font-size: 14px; color: var(--tinta-suave); max-width: 24ch; }
+
+.flaps { display: flex; gap: 3px; }
+.flap {
+  position: relative; display: grid; place-items: center;
+  width: 30px; height: 44px; border-radius: 5px;
+  background: var(--flap); color: var(--flap-txt);
+  font-family: var(--fuente-alta); font-weight: 600; font-size: 32px; line-height: 1;
+  overflow: hidden;
+}
+.flap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0,0,0,.6); box-shadow: 0 1px 0 rgba(255,255,255,.08); }
+.flap.sep { width: 10px; background: transparent; color: var(--tinta); }
+.flap.sep::after { display: none; }
+.flap.gira { animation: giro .07s linear; }
+@keyframes giro { 50% { transform: scaleY(.15); } }
+.bajo .flap:not(.sep) { color: #7CF0B4; }
+
+@media (max-width: 720px) {
+  .pase { grid-template-columns: minmax(0, 1fr); }
+  .pase-talon { border-left: 0; border-top: 2px dashed var(--linea); flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .pase-talon::before { left: -12px; top: -13px; }
+  .pase-talon::after { left: auto; right: -12px; top: -13px; bottom: auto; }
+  .datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.vacio {
+  background: var(--papel); border-radius: var(--radio-pase); padding: 32px 26px; box-shadow: var(--sombra);
+  display: grid; gap: 12px; justify-items: start;
+}
+.vacio h3 { font-family: var(--fuente-alta); font-size: 30px; margin: 0; line-height: 1.05; }
+.vacio p { margin: 0; color: var(--tinta-suave); max-width: 52ch; }
+
+/* ---------- ofertas ---------- */
+.selector { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; scrollbar-width: none; }
+.selector::-webkit-scrollbar { display: none; }
+.selector button {
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid rgba(255,255,255,.4); background: transparent; color: var(--sobre-cielo); font-weight: 600;
+  font-family: var(--fuente-alta); font-size: 18px; letter-spacing: .02em;
+}
+.selector button[aria-pressed="true"] { background: var(--sobre-cielo); color: #10193A; border-color: var(--sobre-cielo); }
+
+.hoja { background: var(--papel); border-radius: var(--radio-pase); box-shadow: var(--sombra); padding: 20px 22px; margin-bottom: 18px; }
+.hoja h3 { margin: 0 0 4px; font-size: 18px; }
+.hoja .sub { margin: 0 0 14px; color: var(--tinta-suave); font-size: 14px; }
+.grafico { width: 100%; height: auto; display: block; overflow: visible; }
+.grafico text { font-family: var(--fuente); font-size: 12px; fill: var(--tinta-suave); }
+.grafico .linea { fill: none; stroke: var(--cielo); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+@media (prefers-color-scheme: dark) { .grafico .linea { stroke: #8FA8FF; } .grafico .punto { fill: #8FA8FF; } }
+.grafico .punto { fill: var(--cielo); }
+.grafico .umbral { stroke: var(--senal); stroke-width: 1.5; stroke-dasharray: 6 5; }
+.grafico .umbral-txt { fill: var(--senal-hondo); font-weight: 600; }
+.grafico .guia { stroke: var(--linea); stroke-width: 1; }
+
+.lista-ofertas { list-style: none; margin: 0; padding: 0; display: grid; }
+.oferta {
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 130px 190px; gap: 8px 18px; align-items: center;
+  padding: 14px 0; border-top: 1px solid var(--linea);
+}
+.oferta:first-child { border-top: 0; }
+.oferta .btn { width: 100%; }
+.of-fechas { font-weight: 600; }
+.of-fechas span { white-space: nowrap; }
+.of-noches { display: block; font-weight: 400; font-size: 13.5px; color: var(--tinta-suave); }
+.of-info { font-size: 14px; color: var(--tinta-suave); min-width: 0; }
+.insignia { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-bottom: 3px; }
+.insignia.verif { background: var(--pista-claro); color: var(--pista); }
+.insignia.estim { background: var(--papel-2); color: var(--tinta-suave); }
+.of-precio { font-family: var(--fuente-alta); font-weight: 700; font-size: 26px; white-space: nowrap; text-align: right; }
+.of-precio.bajo { color: var(--pista); }
+@media (max-width: 720px) {
+  .oferta { grid-template-columns: minmax(0, 1fr) auto; }
+  .of-info { grid-column: 1; }
+  .of-precio { grid-column: 2; grid-row: 1; }
+  .oferta .btn { grid-column: 2; grid-row: 2; width: auto; }
+}
+
+/* ---------- ajustes ---------- */
+.rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 720px) { .rejilla { grid-template-columns: 1fr; } }
+.barra-uso { height: 10px; border-radius: 999px; background: var(--papel-2); overflow: hidden; margin: 8px 0 6px; }
+.barra-uso span { display: block; height: 100%; background: var(--senal); border-radius: inherit; }
+.avisos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.avisos li { font-size: 14px; padding: 8px 12px; border-radius: 8px; background: var(--papel-2); }
+.avisos li.error { background: var(--peligro-claro); color: var(--peligro); }
+.fila-botones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.dato-conexion { font-family: var(--fuente-alta); font-size: 20px; font-weight: 600; word-break: break-all; }
+
+/* ---------- editor ---------- */
+dialog.editor {
+  width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+  padding: 0; border: 0; border-radius: var(--radio-pase);
+  background: var(--papel); color: var(--tinta); box-shadow: 0 30px 80px -20px rgba(0,0,0,.6);
+}
+dialog.editor::backdrop { background: rgba(6, 14, 48, .62); }
+.editor form { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: calc(100dvh - 24px); }
+.editor-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px 10px; }
+.editor-cab h2 { margin: 0; font-family: var(--fuente-alta); font-size: 28px; }
+.editor-cuerpo { padding: 6px 22px 8px; display: grid; gap: 20px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+.editor fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 12px; }
+.editor legend { font-weight: 600; font-size: 15px; padding: 0; margin-bottom: 10px; }
+.par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.par-ruta { display: grid; grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr); gap: 10px; align-items: end; }
+.par-ruta .flecha { align-self: center; justify-self: center; margin-top: 22px; color: var(--tinta-suave); }
+.resumen-combos { font-size: 14px; padding: 10px 12px; border-radius: 8px; background: var(--papel-2); color: var(--tinta-suave); }
+.resumen-combos.mal { background: var(--peligro-claro); color: var(--peligro); }
+.errores { color: var(--peligro); font-size: 14px; font-weight: 600; margin: 0; }
+.editor-pie { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px 20px; border-top: 1px solid var(--linea); background: var(--papel); }
+.interruptor { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.interruptor input { width: 22px; height: 22px; accent-color: var(--cielo); }
+
+/* ---------- avisos flotantes ---------- */
+.tostadas { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; width: min(520px, calc(100vw - 24px)); }
+.tostada {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px 12px 16px; border-radius: 12px; background: #0F1B3D; color: #fff;
+  box-shadow: 0 14px 30px -12px rgba(0,0,0,.6); font-size: 15px;
+}
+.tostada.error { background: #7A1A12; }
+.tostada.ok { background: #0E5C39; }
+.tostada .btn { min-height: 36px; background: rgba(255,255,255,.14); color: #fff; }
+
+.cargando { color: var(--sobre-cielo-suave); padding: 40px 0; text-align: center; }
+
+@media (max-width: 720px) {
+  .cabecera { padding-left: 16px; padding-right: 16px; }
+  .marca { font-size: 26px; }
+  .cabecera .btn-senal { padding: 0 12px; }
+  main { padding: 14px 12px calc(env(safe-area-inset-bottom) + 96px); }
+  .pestanas {
+    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; max-width: none;
+    padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px); gap: 4px;
+    background: var(--cielo-hondo); border-top: 1px solid rgba(255,255,255,.12);
+  }
+  .pestana { flex: 1; display: grid; justify-items: center; gap: 2px; min-height: 52px; padding: 6px 4px; border-radius: 12px; font-size: 12.5px; }
+  .pestana .ico { display: block; width: 22px; height: 22px; }
+  .tostadas { bottom: calc(env(safe-area-inset-bottom) + 86px); }
+  .pase-cuerpo, .pase-talon, .hoja { padding-left: 16px; padding-right: 16px; }
+  .flap { width: 26px; height: 40px; font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-avion" viewBox="0 0 24 24"><path fill="currentColor" d="M2.6 10.9h6.1L5.6 3.6h2.6l5.4 7.3h5.6c1.6 0 2.8.5 2.8 1.1s-1.2 1.1-2.8 1.1h-5.6l-5.4 7.3H5.6l3.1-7.3H2.6zM2 8.6h1.9l1.6 2.1H2.9zM2 15.4h1.9l1.6-2.1H2.9z"/></symbol>
+  <symbol id="i-radar" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.4" opacity=".45"/><circle cx="20" cy="20" r="11" fill="none" stroke="currentColor" stroke-width="2.4" opacity=".7"/><path d="M20 20 L34 9" stroke="#FF6B1A" stroke-width="3" stroke-linecap="round"/><circle cx="20" cy="20" r="3" fill="currentColor"/></symbol>
+  <symbol id="i-lista" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></symbol>
+  <symbol id="i-etiqueta" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-ajustes" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-mas" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M15 15l5 5"/></symbol>
+</svg>
+
+<!-- ============ Pantalla de conexión ============ -->
+<section class="conexion" id="vistaConexion" hidden>
+  <div class="pase">
+    <form id="formConexion" novalidate>
+      <div class="marca" style="color:var(--cielo)"><svg><use href="#i-radar"/></svg><span>Radar de pasajes</span></div>
+      <h1>Conectá el panel con tu buscador</h1>
+      <p>Usá los datos del repositorio privado que creaste siguiendo la guía. El token se guarda solo en este dispositivo.</p>
+      <label class="campo">Usuario de GitHub
+        <input class="entrada" id="cxUsuario" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+      </label>
+      <label class="campo">Repositorio privado
+        <input class="entrada" id="cxRepo" value="radar-pasajes-motor" autocapitalize="off" spellcheck="false" required>
+      </label>
+      <label class="campo">Token de acceso
+        <small>Empieza con «github_pat_». Lo creás en el paso 8 de la guía.</small>
+        <input class="entrada" id="cxToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+      </label>
+      <p class="errores" id="cxError" role="alert"></p>
+      <div><button class="btn btn-senal" id="cxBoton" type="submit">Conectar</button></div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ Aplicación ============ -->
+<div id="vistaApp" hidden>
+  <header class="cabecera">
+    <div class="marca"><svg><use href="#i-radar"/></svg><span>Radar de pasajes</span></div>
+    <div class="estado-run" id="estadoRun" aria-live="polite"></div>
+    <button class="btn btn-senal" id="btnBuscar" type="button"><svg><use href="#i-lupa"/></svg><span class="largo">Buscar ahora</span><span class="corto">Buscar</span></button>
+  </header>
+  <div class="pista" aria-hidden="true"></div>
+
+  <nav class="pestanas" role="tablist" aria-label="Secciones">
+    <button class="pestana" role="tab" id="tab-vigilancias" aria-controls="sec-vigilancias" data-tab="vigilancias"><svg class="ico"><use href="#i-lista"/></svg>Vigilancias</button>
+    <button class="pestana" role="tab" id="tab-ofertas" aria-controls="sec-ofertas" data-tab="ofertas"><svg class="ico"><use href="#i-etiqueta"/></svg>Ofertas</button>
+    <button class="pestana" role="tab" id="tab-ajustes" aria-controls="sec-ajustes" data-tab="ajustes"><svg class="ico"><use href="#i-ajustes"/></svg>Ajustes</button>
+  </nav>
+
+  <main>
+    <p class="cargando" id="cargando">Cargando tus datos…</p>
+
+    <section id="sec-vigilancias" role="tabpanel" aria-labelledby="tab-vigilancias" hidden>
+      <div class="titulo-seccion">
+        <h2>Tus vigilancias</h2>
+        <button class="btn btn-borde" type="button" id="btnNueva"><svg><use href="#i-mas"/></svg>Nueva vigilancia</button>
+      </div>
+      <div class="pases" id="listaPases"></div>
+    </section>
+
+    <section id="sec-ofertas" role="tabpanel" aria-labelledby="tab-ofertas" hidden>
+      <div class="titulo-seccion"><h2>Mejores ofertas encontradas</h2></div>
+      <div class="selector" id="selectorOfertas" role="group" aria-label="Elegí una vigilancia"></div>
+      <div id="detalleOfertas"></div>
+    </section>
+
+    <section id="sec-ajustes" role="tabpanel" aria-labelledby="tab-ajustes" hidden>
+      <div class="titulo-seccion"><h2>Ajustes</h2></div>
+      <div class="rejilla">
+        <form class="hoja" id="formAjustes" novalidate>
+          <h3>Búsqueda</h3>
+          <p class="sub">Se aplican a todas las vigilancias.</p>
+          <div style="display:grid; gap:14px">
+            <label class="campo">Moneda
+              <select class="entrada" id="ajMoneda">
+                <option value="USD">Dólares (USD)</option>
+                <option value="EUR">Euros (EUR)</option>
+                <option value="BRL">Reales (BRL)</option>
+              </select>
+              <small>Si la cambiás, revisá el precio de alerta de cada vigilancia.</small>
+            </label>
+            <label class="campo">País desde donde comprás
+              <small>Código de 2 letras (por ejemplo uy, ar o br). Opcional: afecta los precios de Google Flights.</small>
+              <input class="entrada" id="ajPais" maxlength="2" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="campo">Verificaciones por mes
+              <small>Consultas a Google Flights. El plan gratuito de SerpApi trae 250.</small>
+              <input class="entrada" id="ajLimite" type="number" min="0" max="100000" inputmode="numeric">
+            </label>
+            <label class="campo">Verificaciones por búsqueda
+              <small>Cuántas combinaciones se confirman en cada ejecución, repartidas entre vigilancias.</small>
+              <input class="entrada" id="ajPorRun" type="number" min="0" max="30" inputmode="numeric">
+            </label>
+          </div>
+          <div class="fila-botones"><button class="btn btn-senal" type="submit" id="btnGuardarAjustes">Guardar ajustes</button></div>
+        </form>
+
+        <div style="display:grid; gap:16px; align-content:start">
+          <div class="hoja">
+            <h3>Uso de verificaciones</h3>
+            <div id="usoSerp"></div>
+          </div>
+          <div class="hoja">
+            <h3>Última ejecución</h3>
+            <div id="ultimaEjecucion"></div>
+            <div class="fila-botones">
+              <button class="btn btn-borde" type="button" id="btnPrueba">Enviar alerta de prueba</button>
+              <a class="btn btn-texto" id="linkActions" target="_blank" rel="noopener">Ver ejecuciones en GitHub</a>
+            </div>
+          </div>
+          <div class="hoja">
+            <h3>Conexión</h3>
+            <p class="sub">Repositorio conectado en este dispositivo:</p>
+            <div class="dato-conexion" id="datoConexion"></div>
+            <div class="fila-botones">
+              <button class="btn btn-borde" type="button" id="btnCambiarToken">Cambiar token</button>
+              <button class="btn btn-texto btn-peligro" type="button" id="btnDesconectar">Desconectar este dispositivo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ Editor de vigilancia ============ -->
+<dialog class="editor" id="editor" aria-labelledby="edTitulo">
+  <form id="formEditor" novalidate>
+    <div class="editor-cab">
+      <h2 id="edTitulo">Nueva vigilancia</h2>
+      <button class="btn btn-texto" type="button" data-cerrar>Cancelar</button>
+    </div>
+    <div class="editor-cuerpo">
+      <fieldset>
+        <legend>Ruta</legend>
+        <div class="par-ruta">
+          <label class="campo">Origen
+            <input class="entrada iata" id="edOrigen" list="aeropuertos" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="GRU" required>
+          </label>
+          <svg class="flecha" width="26" height="26"><use href="#i-avion"/></svg>
+          <label class="campo">Destino
+            <input class="entrada iata" id="edDestino" list="aeropuertos" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="LIS" required>
+          </label>
+        </div>
+        <small class="nota" id="edCiudades">Código de aeropuerto de 3 letras. Escribí y elegí de la lista.</small>
+      </fieldset>
+
+      <fieldset>
+        <legend>Fechas de ida</legend>
+        <div class="par">
+          <label class="campo">Desde <input class="entrada" type="date" id="edSalidaDesde" required></label>
+          <label class="campo">Hasta <input class="entrada" type="date" id="edSalidaHasta" required></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Fechas de vuelta</legend>
+        <div class="par">
+          <label class="campo">Desde <input class="entrada" type="date" id="edRegresoDesde" required></label>
+          <label class="campo">Hasta <input class="entrada" type="date" id="edRegresoHasta" required></label>
+        </div>
+        <div class="par">
+          <label class="campo">Estadía mínima <small>Noches (opcional)</small><input class="entrada" type="number" min="1" id="edEstMin" inputmode="numeric"></label>
+          <label class="campo">Estadía máxima <small>Noches (opcional)</small><input class="entrada" type="number" min="1" id="edEstMax" inputmode="numeric"></label>
+        </div>
+        <p class="resumen-combos" id="edCombos" aria-live="polite"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Pasajeros y vuelos</legend>
+        <div class="par">
+          <label class="campo">Adultos <input class="entrada" type="number" min="1" max="9" id="edAdultos" inputmode="numeric" required></label>
+          <label class="campo">Niños <small>2 a 11 años</small><input class="entrada" type="number" min="0" max="8" id="edNinos" inputmode="numeric"></label>
+        </div>
+        <label class="campo">Escalas
+          <select class="entrada" id="edEscalas">
+            <option value="cualquiera">Cualquier cantidad</option>
+            <option value="max1">Hasta 1 escala</option>
+            <option value="directo">Solo vuelos directos</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Alerta</legend>
+        <label class="campo">Avisarme por Telegram si el total baja de
+          <small id="edMonedaNota">Precio total para todos los pasajeros, ida y vuelta. Dejalo vacío para no recibir alertas.</small>
+          <input class="entrada" type="number" min="0" step="1" id="edPrecio" inputmode="numeric">
+        </label>
+        <label class="campo">Nombre <small>Opcional, para reconocerla (por ejemplo «Vacaciones de enero»)</small>
+          <input class="entrada" id="edNombre" maxlength="60">
+        </label>
+        <label class="interruptor"><input type="checkbox" id="edActiva" checked> Vigilancia activa</label>
+      </fieldset>
+      <p class="errores" id="edErrores" role="alert"></p>
+    </div>
+    <div class="editor-pie">
+      <button class="btn btn-texto" type="button" data-cerrar>Cancelar</button>
+      <button class="btn btn-senal" type="submit" id="edGuardar">Guardar vigilancia</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="aeropuertos"></datalist>
+<div class="tostadas" id="tostadas" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+/* ================= datos fijos ================= */
+const AEROPUERTOS = {
+  MVD: "Montevideo", PDP: "Punta del Este", EZE: "Buenos Aires (Ezeiza)", AEP: "Buenos Aires (Aeroparque)",
+  COR: "Córdoba", MDZ: "Mendoza", BRC: "Bariloche", IGR: "Puerto Iguazú", USH: "Ushuaia", ROS: "Rosario",
+  GRU: "São Paulo (Guarulhos)", CGH: "São Paulo (Congonhas)", GIG: "Río de Janeiro", SDU: "Río (Santos Dumont)",
+  FLN: "Florianópolis", POA: "Porto Alegre", SSA: "Salvador", REC: "Recife", FOR: "Fortaleza", NAT: "Natal",
+  MCZ: "Maceió", BSB: "Brasilia", CNF: "Belo Horizonte", IGU: "Foz do Iguaçu", CWB: "Curitiba", NVT: "Navegantes",
+  ASU: "Asunción", SCL: "Santiago de Chile", LIM: "Lima", CUZ: "Cusco", BOG: "Bogotá", MDE: "Medellín",
+  CTG: "Cartagena", ADZ: "San Andrés", UIO: "Quito", GYE: "Guayaquil", VVI: "Santa Cruz", LPB: "La Paz",
+  PTY: "Panamá", SJO: "San José (Costa Rica)", CUN: "Cancún", MEX: "Ciudad de México", HAV: "La Habana",
+  PUJ: "Punta Cana", SDQ: "Santo Domingo", AUA: "Aruba", CUR: "Curazao", SJU: "San Juan",
+  MIA: "Miami", MCO: "Orlando", FLL: "Fort Lauderdale", JFK: "Nueva York (JFK)", EWR: "Nueva York (Newark)",
+  LAX: "Los Ángeles", SFO: "San Francisco", LAS: "Las Vegas", ORD: "Chicago", ATL: "Atlanta",
+  IAH: "Houston", DFW: "Dallas", BOS: "Boston", IAD: "Washington", YYZ: "Toronto", YUL: "Montreal",
+  MAD: "Madrid", BCN: "Barcelona", AGP: "Málaga", PMI: "Palma de Mallorca", LIS: "Lisboa", OPO: "Oporto",
+  FCO: "Roma", MXP: "Milán", VCE: "Venecia", NAP: "Nápoles", CDG: "París (Charles de Gaulle)", ORY: "París (Orly)",
+  NCE: "Niza", LHR: "Londres (Heathrow)", LGW: "Londres (Gatwick)", DUB: "Dublín", AMS: "Ámsterdam",
+  BRU: "Bruselas", FRA: "Fráncfort", MUC: "Múnich", BER: "Berlín", ZRH: "Zúrich", GVA: "Ginebra",
+  VIE: "Viena", PRG: "Praga", BUD: "Budapest", CPH: "Copenhague", ATH: "Atenas", IST: "Estambul",
+  DXB: "Dubái", DOH: "Doha", TLV: "Tel Aviv", CAI: "El Cairo", CMN: "Casablanca", JNB: "Johannesburgo",
+  CPT: "Ciudad del Cabo", NRT: "Tokio (Narita)", HND: "Tokio (Haneda)", ICN: "Seúl", PEK: "Pekín",
+  PVG: "Shanghái", HKG: "Hong Kong", SIN: "Singapur", BKK: "Bangkok", DPS: "Bali", SYD: "Sídney",
+  MEL: "Melbourne", AKL: "Auckland"
+};
+const ESCALAS_TXT = { cualquiera: "Cualquiera", max1: "Hasta 1", directo: "Solo directos" };
+const AJUSTES_DEF = { moneda: "USD", pais: "", limite_mensual_serpapi: 240, verificaciones_por_ejecucion: 3 };
+const LS = { usuario: "radar.usuario", repo: "radar.repo", token: "radar.token" };
+const FLUJO = "buscar.yml";
+
+/* ================= estado ================= */
+const S = {
+  usuario: "", repo: "", token: "", rama: "main",
+  cfg: null, ofertas: null, historial: null, estado: null,
+  tab: "vigilancias", sel: null, corriendo: null, editando: null,
+  animados: new Set(),
+};
+
+/* ================= utilidades ================= */
+const $ = (sel, raiz = document) => raiz.querySelector(sel);
+const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
+const h = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const urlSegura = (u) => (/^https:\/\//i.test(String(u || "")) ? String(u) : "#");
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+const enc = encodeURIComponent;
+const reduceMov = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function lsGet(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch { /* sin almacenamiento */ } }
+
+const fmtNum = (n) => new Intl.NumberFormat("es-UY", { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0));
+const fmtPrecio = (n, m) => `${m} ${fmtNum(n)}`;
+function aFecha(iso) {
+  const [y, m, d] = String(iso || "").slice(0, 10).split("-").map(Number);
+  return y ? new Date(y, m - 1, d) : null;
+}
+function isoLocal(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+const fmtCorta = (iso) => { const d = aFecha(iso); return d ? d.toLocaleDateString("es", { day: "numeric", month: "short" }).replace(".", "") : ""; };
+const fmtConDia = (iso) => { const d = aFecha(iso); return d ? d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "") : ""; };
+const noches = (a, b) => Math.round((aFecha(b) - aFecha(a)) / 86400000);
+function haceCuanto(iso) {
+  const t = Date.parse(iso);
+  if (!t) return "";
+  const min = Math.round((Date.now() - t) / 60000);
+  if (min < 1) return "recién";
+  if (min < 60) return `hace ${min} min`;
+  const hs = Math.round(min / 60);
+  if (hs < 24) return `hace ${hs} h`;
+  const d = Math.round(hs / 24);
+  return `hace ${d} día${d === 1 ? "" : "s"}`;
+}
+function proximaAutomatica() {
+  const ahora = new Date();
+  const c = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate(), ahora.getUTCHours() - (ahora.getUTCHours() % 4), 17));
+  while (c <= ahora) c.setUTCHours(c.getUTCHours() + 4);
+  return c.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+}
+function b64enc(texto) {
+  const bytes = new TextEncoder().encode(texto);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function b64dec(b64) {
+  const bin = atob(String(b64).replace(/\s/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+function nuevoId() { return "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function nombreVig(b) { return (b.nombre || "").trim() || `${b.origen} → ${b.destino}`; }
+const moneda = () => (S.cfg?.ajustes?.moneda || "USD");
+
+/* ================= avisos flotantes ================= */
+function tostada(texto, tipo = "", accion = null) {
+  const caja = document.createElement("div");
+  caja.className = `tostada ${tipo}`;
+  caja.setAttribute("role", tipo === "error" ? "alert" : "status");
+  const span = document.createElement("span");
+  span.textContent = texto;
+  caja.append(span);
+  if (accion) {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.type = "button";
+    b.textContent = accion.texto;
+    b.addEventListener("click", () => { caja.remove(); accion.hacer(); });
+    caja.append(b);
+  }
+  $("#tostadas").append(caja);
+  setTimeout(() => caja.remove(), tipo === "error" ? 9000 : 6000);
+}
+
+/* ================= GitHub ================= */
+class ErrorGH extends Error {
+  constructor(estado, mensaje) { super(mensaje); this.estado = estado; }
+}
+const rutaRepo = () => `/repos/${enc(S.usuario)}/${enc(S.repo)}`;
+
+async function gh(ruta, { metodo = "GET", cuerpo, crudo = false } = {}) {
+  let res;
+  try {
+    res = await fetch("https://api.github.com" + ruta, {
+      method: metodo,
+      cache: "no-store",
+      headers: {
+        Accept: crudo ? "application/vnd.github.raw+json" : "application/vnd.github+json",
+        Authorization: "Bearer " + S.token,
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(cuerpo ? { "Content-Type": "application/json" } : {}),
+      },
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    });
+  } catch {
+    throw new ErrorGH(0, "sin conexión");
+  }
+  if (res.status === 204) return null;
+  if (!res.ok) {
+    let detalle = "";
+    try { detalle = (await res.json()).message || ""; } catch { /* sin detalle */ }
+    throw new ErrorGH(res.status, detalle);
+  }
+  return crudo ? res.text() : res.json();
+}
+
+function mensajeError(e) {
+  if (!(e instanceof ErrorGH)) return "Algo falló al procesar los datos. Recargá la página.";
+  switch (e.estado) {
+    case 0: return "No hay conexión con GitHub. Revisá tu internet y volvé a intentarlo.";
+    case 401: return "El token no es válido o venció. Creá uno nuevo y cargalo en Ajustes → Cambiar token.";
+    case 403: return "El token no tiene permiso para esto. Revisá que tenga Contents y Actions en «Read and write».";
+    case 404: return "No encuentro el repositorio. Revisá el usuario, el nombre y que el token tenga acceso a ese repositorio.";
+    case 409:
+    case 422: return "La configuración cambió en otro dispositivo. Volvé a intentarlo.";
+    default: return `GitHub respondió con el error ${e.estado}. ${e.message || ""}`.trim();
+  }
+}
+
+function normalizarCfg(c) {
+  const cfg = c && typeof c === "object" ? c : {};
+  cfg.ajustes = { ...AJUSTES_DEF, ...(cfg.ajustes || {}) };
+  cfg.busquedas = Array.isArray(cfg.busquedas) ? cfg.busquedas : [];
+  return cfg;
+}
+
+async function leerConfig() {
+  try {
+    const d = await gh(`${rutaRepo()}/contents/config.json?ref=${enc(S.rama)}`);
+    return { cfg: normalizarCfg(JSON.parse(b64dec(d.content))), sha: d.sha };
+  } catch (e) {
+    if (e instanceof ErrorGH && e.estado === 404) return { cfg: normalizarCfg({}), sha: null };
+    throw e;
+  }
+}
+
+async function guardarConfig(mutar, mensaje) {
+  for (let intento = 0; intento < 2; intento++) {
+    const { cfg, sha } = await leerConfig();
+    mutar(cfg);
+    const cuerpo = { message: mensaje, content: b64enc(JSON.stringify(cfg, null, 2) + "\n"), branch: S.rama };
+    if (sha) cuerpo.sha = sha;
+    try {
+      await gh(`${rutaRepo()}/contents/config.json`, { metodo: "PUT", cuerpo });
+      S.cfg = cfg;
+      return;
+    } catch (e) {
+      if (intento === 0 && e instanceof ErrorGH && (e.estado === 409 || e.estado === 422)) continue;
+      throw e;
+    }
+  }
+}
+
+async function leerDato(ruta, defecto) {
+  try {
+    const texto = await gh(`${rutaRepo()}/contents/${ruta}?ref=${enc(S.rama)}`, { crudo: true });
+    return JSON.parse(texto);
+  } catch (e) {
+    if (e instanceof SyntaxError) return defecto;
+    if (e instanceof ErrorGH && e.estado === 404) return defecto;
+    throw e;
+  }
+}
+
+async function cargarTodo() {
+  const [conf, ofertas, historial, estado] = await Promise.all([
+    leerConfig(),
+    leerDato("data/ofertas.json", {}),
+    leerDato("data/historial.json", {}),
+    leerDato("data/estado.json", {}),
+  ]);
+  S.cfg = conf.cfg;
+  S.ofertas = ofertas || {};
+  S.historial = historial || {};
+  S.estado = estado || {};
+  if (!S.sel || !S.cfg.busquedas.some((b) => b.id === S.sel)) S.sel = S.cfg.busquedas[0]?.id || null;
+  $("#cargando").hidden = true;
+  pintarTodo();
+}
+
+async function lanzar(modo) {
+  if (S.corriendo) {
+    tostada("Ya hay una ejecución en marcha. Esperá a que termine.");
+    return;
+  }
+  const inicio = Date.now();
+  try {
+    await gh(`${rutaRepo()}/actions/workflows/${FLUJO}/dispatches`, {
+      metodo: "POST", cuerpo: { ref: S.rama, inputs: { modo } },
+    });
+  } catch (e) {
+    if (e instanceof ErrorGH && e.estado === 404) {
+      tostada("No encuentro el archivo .github/workflows/buscar.yml en tu repositorio. Revisá el paso 4 de la guía.", "error");
+    } else {
+      tostada(mensajeError(e), "error");
+    }
+    return;
+  }
+  S.corriendo = { modo, inicio };
+  pintarEstado();
+  tostada(modo === "prueba"
+    ? "Enviando la alerta de prueba. Llega a Telegram en 1 o 2 minutos."
+    : "Búsqueda en marcha. Tarda entre 1 y 3 minutos.");
+
+  let run = null;
+  for (let i = 0; i < 45; i++) {
+    await dormir(i < 4 ? 5000 : 8000);
+    try {
+      const d = await gh(`${rutaRepo()}/actions/workflows/${FLUJO}/runs?event=workflow_dispatch&per_page=5`);
+      run = (d.workflow_runs || []).find((x) => Date.parse(x.created_at) >= inicio - 60000) || run;
+      if (run && run.status === "completed") break;
+    } catch { /* se reintenta */ }
+  }
+  S.corriendo = null;
+  if (run && run.status === "completed") {
+    if (run.conclusion === "success") {
+      try { await cargarTodo(); } catch (e) { tostada(mensajeError(e), "error"); }
+      tostada(modo === "prueba" ? "Prueba terminada. Revisá Telegram." : "Búsqueda terminada. Resultados actualizados.", "ok");
+    } else {
+      tostada("La ejecución terminó con un error. Abrí «Ver ejecuciones en GitHub» en Ajustes para ver el detalle.", "error");
+    }
+  } else {
+    tostada("La ejecución sigue en curso. Actualizá el panel en unos minutos.");
+  }
+  pintarEstado();
+}
+
+/* ================= pintado ================= */
+function pintarTodo() {
+  pintarEstado();
+  pintarPestanas();
+  pintarVigilancias();
+  pintarOfertas();
+  pintarAjustes();
+}
+
+function pintarEstado() {
+  const caja = $("#estadoRun");
+  const boton = $("#btnBuscar");
+  const ue = S.ofertas?.ultima_ejecucion;
+  let punto = "";
+  let texto = "";
+  if (S.corriendo) {
+    punto = "activo";
+    texto = S.corriendo.modo === "prueba" ? "Enviando alerta de prueba…" : "Buscando precios…";
+  } else if (ue?.fecha) {
+    punto = ue.ok === false ? "mal" : "";
+    const que = ue.modo === "prueba" ? "Última prueba" : "Última búsqueda";
+    texto = `${que} ${haceCuanto(ue.fecha)}${ue.ok === false ? ", con avisos" : ""}. Próxima automática ≈ ${proximaAutomatica()}`;
+  } else {
+    texto = `Todavía no hubo búsquedas. Próxima automática ≈ ${proximaAutomatica()}`;
+  }
+  caja.innerHTML = `<span class="punto ${punto}"></span><span>${h(texto)}</span>`;
+  boton.disabled = Boolean(S.corriendo);
+}
+
+function pintarPestanas() {
+  $$(".pestana").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === S.tab)));
+  ["vigilancias", "ofertas", "ajustes"].forEach((t) => { $(`#sec-${t}`).hidden = t !== S.tab || !S.cfg; });
+}
+
+function htmlFlaps(precio, id) {
+  const txt = fmtNum(precio);
+  const fichas = [...txt].map((c) => /\d/.test(c)
+    ? `<span class="flap" data-final="${c}">${c}</span>`
+    : `<span class="flap sep">${h(c)}</span>`).join("");
+  return `<div class="flaps" data-anim="${h(id)}" aria-hidden="true">${fichas}</div>`;
+}
+
+function animarFlaps(raiz) {
+  if (reduceMov()) return;
+  $$(".flaps[data-anim]", raiz).forEach((grupo) => {
+    const clave = grupo.dataset.anim + grupo.textContent;
+    if (S.animados.has(clave)) return;
+    S.animados.add(clave);
+    $$(".flap[data-final]", grupo).forEach((ficha, i) => {
+      const final = ficha.dataset.final;
+      let vueltas = 7 + i * 3;
+      const t = setInterval(() => {
+        ficha.classList.remove("gira");
+        void ficha.offsetWidth;
+        ficha.classList.add("gira");
+        if (--vueltas <= 0) {
+          ficha.textContent = final;
+          clearInterval(t);
+        } else {
+          ficha.textContent = String(Math.floor(Math.random() * 10));
+        }
+      }, 60);
+    });
+  });
+}
+
+function pintarVigilancias() {
+  const cont = $("#listaPases");
+  const lista = S.cfg?.busquedas || [];
+  if (!lista.length) {
+    cont.innerHTML = `
+      <div class="vacio">
+        <h3>Todavía no vigilás ninguna ruta</h3>
+        <p>Creá una vigilancia con el origen, el destino, los rangos de fechas y el precio que te interesa. El radar la revisa cada 4 horas y te avisa por Telegram.</p>
+        <button class="btn btn-senal" type="button" data-accion="nueva"><svg><use href="#i-mas"/></svg>Crear la primera vigilancia</button>
+      </div>`;
+    return;
+  }
+  cont.innerHTML = lista.map((b) => {
+    const info = S.ofertas?.busquedas?.[b.id];
+    const mejor = info?.mejor;
+    const umbral = Number(b.precio_alerta) || 0;
+    const bajo = mejor && umbral > 0 && mejor.precio <= umbral;
+    const pas = (Number(b.adultos) || 1) + (Number(b.ninos) || 0);
+    let chip;
+    if (b.activa === false) chip = `<span class="chip">Pausada</span>`;
+    else if (bajo) chip = `<span class="chip ok">Bajo tu alerta</span>`;
+    else if (info?.nota) chip = `<span class="chip mal">Revisar fechas</span>`;
+    else chip = `<span class="chip">Vigilando</span>`;
+
+    let talon;
+    if (mejor) {
+      talon = `
+        <div class="talon-bloque ${bajo ? "bajo" : ""}">
+          <span class="talon-titulo">Mejor precio total</span>
+          <span class="talon-moneda">${h(mejor.moneda || moneda())}</span>
+          ${htmlFlaps(mejor.precio, b.id)}
+          <span class="sr">${h(fmtPrecio(mejor.precio, mejor.moneda || moneda()))}</span>
+        </div>
+        <div class="talon-bloque">
+          <span class="talon-linea"><strong>${h(fmtCorta(mejor.salida))} al ${h(fmtCorta(mejor.regreso))}</strong></span>
+          <span class="talon-linea">${mejor.verificado ? "Verificado en Google Flights" : "Estimado con Aviasales"}</span>
+          <span class="talon-linea">${umbral > 0 ? `Alerta: ${h(fmtPrecio(umbral, moneda()))}` : "Sin alerta de precio"}</span>
+        </div>`;
+    } else {
+      talon = `
+        <div class="talon-bloque">
+          <span class="talon-titulo">Mejor precio total</span>
+          <span class="talon-vacio">${h(info?.nota || (b.activa === false ? "Pausada: no se busca hasta que la reanudes." : "Aparece después de la próxima búsqueda."))}</span>
+          <span class="talon-linea">${umbral > 0 ? `Alerta: ${h(fmtPrecio(umbral, moneda()))}` : "Sin alerta de precio"}</span>
+        </div>`;
+    }
+
+    const estadia = b.estadia_min || b.estadia_max
+      ? `<div><dt>Estadía</dt><dd>${b.estadia_min ? h(b.estadia_min) : "1"} a ${b.estadia_max ? h(b.estadia_max) : "∞"} noches</dd></div>`
+      : `<div><dt>Escalas</dt><dd>${h(ESCALAS_TXT[b.escalas] || "Cualquiera")}</dd></div>`;
+
+    return `
+      <article class="pase ${b.activa === false ? "pausada" : ""}" data-id="${h(b.id)}">
+        <div class="pase-cuerpo">
+          <div class="pase-sup"><span class="pase-nombre">${h(nombreVig(b))}</span>${chip}</div>
+          <div class="ruta" aria-label="De ${h(AEROPUERTOS[b.origen] || b.origen)} a ${h(AEROPUERTOS[b.destino] || b.destino)}">
+            <div class="aeropuerto"><span class="iata">${h(b.origen)}</span><span class="ciudad">${h(AEROPUERTOS[b.origen] || "")}</span></div>
+            <div class="trayecto" aria-hidden="true"><svg><use href="#i-avion"/></svg></div>
+            <div class="aeropuerto dcha"><span class="iata">${h(b.destino)}</span><span class="ciudad">${h(AEROPUERTOS[b.destino] || "")}</span></div>
+          </div>
+          <dl class="datos">
+            <div><dt>Ida</dt><dd>${h(fmtCorta(b.salida_desde))} a ${h(fmtCorta(b.salida_hasta))}</dd></div>
+            <div><dt>Vuelta</dt><dd>${h(fmtCorta(b.regreso_desde))} a ${h(fmtCorta(b.regreso_hasta))}</dd></div>
+            <div><dt>Pasajeros</dt><dd>${pas} ${pas === 1 ? "persona" : "personas"}</dd></div>
+            ${estadia}
+          </dl>
+          <div class="acciones">
+            <button class="btn btn-texto" type="button" data-accion="ver">Ver ofertas</button>
+            <button class="btn btn-texto" type="button" data-accion="editar">Editar</button>
+            <button class="btn btn-texto" type="button" data-accion="pausar">${b.activa === false ? "Reanudar" : "Pausar"}</button>
+            <button class="btn btn-texto btn-peligro" type="button" data-accion="eliminar">Eliminar</button>
+          </div>
+        </div>
+        <div class="pase-talon">${talon}</div>
+      </article>`;
+  }).join("");
+  if (S.tab === "vigilancias") animarFlaps(cont);
+}
+
+function htmlGrafico(serie, umbral, mon) {
+  const puntos = (serie || []).filter((p) => typeof p.mejor === "number").slice(-60);
+  if (puntos.length < 2) {
+    return `<p class="sub">El gráfico aparece cuando haya al menos dos búsquedas con resultados.</p>`;
+  }
+  const ancho = ($("#detalleOfertas")?.clientWidth || 640) - 44;
+  const W = Math.round(Math.max(280, Math.min(900, ancho))), H = W < 480 ? 190 : 240, izq = 52, der = 12, arr = 18, aba = 28;
+  const valores = puntos.map((p) => p.mejor);
+  if (umbral > 0) valores.push(umbral);
+  let min = Math.min(...valores), max = Math.max(...valores);
+  if (min === max) { min -= 1; max += 1; }
+  const margen = (max - min) * 0.12;
+  min -= margen; max += margen;
+  const x = (i) => izq + (i * (W - izq - der)) / (puntos.length - 1);
+  const y = (v) => arr + ((max - v) * (H - arr - aba)) / (max - min);
+  const camino = puntos.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p.mejor).toFixed(1)}`).join(" ");
+  const ultimo = puntos[puntos.length - 1];
+  const verif = puntos.map((p, i) => (typeof p.verificado === "number" && p.verificado === p.mejor)
+    ? `<circle class="punto" cx="${x(i).toFixed(1)}" cy="${y(p.mejor).toFixed(1)}" r="3.5"/>` : "").join("");
+  const fechaTxt = (iso) => new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short" }).replace(".", "");
+  const umbralSvg = umbral > 0
+    ? `<line class="umbral" x1="${izq}" x2="${W - der}" y1="${y(umbral).toFixed(1)}" y2="${y(umbral).toFixed(1)}"/>
+       <text class="umbral-txt" x="${W - der}" y="${(y(umbral) - 6).toFixed(1)}" text-anchor="end">Tu alerta ${h(fmtNum(umbral))}</text>` : "";
+  return `
+    <svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución del mejor precio: último valor ${h(fmtPrecio(ultimo.mejor, mon))}">
+      <line class="guia" x1="${izq}" x2="${W - der}" y1="${y(max - margen).toFixed(1)}" y2="${y(max - margen).toFixed(1)}"/>
+      <line class="guia" x1="${izq}" x2="${W - der}" y1="${y(min + margen).toFixed(1)}" y2="${y(min + margen).toFixed(1)}"/>
+      <text x="${izq - 8}" y="${(y(max - margen) + 4).toFixed(1)}" text-anchor="end">${h(fmtNum(max - margen))}</text>
+      <text x="${izq - 8}" y="${(y(min + margen) + 4).toFixed(1)}" text-anchor="end">${h(fmtNum(min + margen))}</text>
+      ${umbralSvg}
+      <path class="linea" d="${camino}"/>
+      ${verif}
+      <text x="${izq}" y="${H - 8}">${h(fechaTxt(puntos[0].t))}</text>
+      <text x="${W - der}" y="${H - 8}" text-anchor="end">${h(fechaTxt(ultimo.t))}</text>
+    </svg>`;
+}
+
+function pintarOfertas() {
+  const lista = S.cfg?.busquedas || [];
+  const selector = $("#selectorOfertas");
+  const detalle = $("#detalleOfertas");
+  if (!lista.length) {
+    selector.innerHTML = "";
+    detalle.innerHTML = `<div class="vacio"><h3>Sin ofertas todavía</h3><p>Primero creá una vigilancia. Las ofertas aparecen acá después de cada búsqueda.</p><button class="btn btn-senal" type="button" data-accion="nueva">Crear vigilancia</button></div>`;
+    return;
+  }
+  selector.innerHTML = lista.map((b) =>
+    `<button type="button" data-sel="${h(b.id)}" aria-pressed="${b.id === S.sel}" title="${h(nombreVig(b))}">${h(b.origen)} → ${h(b.destino)}</button>`).join("");
+  const b = lista.find((x) => x.id === S.sel) || lista[0];
+  const info = S.ofertas?.busquedas?.[b.id];
+  const umbral = Number(b.precio_alerta) || 0;
+  const mon = moneda();
+  const ofertas = info?.ofertas || [];
+
+  const filas = ofertas.map((o) => {
+    const n = noches(o.salida, o.regreso);
+    const bajo = umbral > 0 && o.precio <= umbral;
+    const partes = [o.aerolinea, o.escalas === 0 ? "directo" : o.escalas === 1 ? "1 escala" : (o.escalas ? `${o.escalas} escalas` : "")].filter(Boolean);
+    const cuando = o.verificado ? `Verificado ${haceCuanto(o.verificado_en || o.visto)}` : "Estimado";
+    return `
+      <li class="oferta">
+        <div class="of-fechas"><span>${h(fmtConDia(o.salida))}</span> al <span>${h(fmtConDia(o.regreso))}</span><span class="of-noches">${n} noche${n === 1 ? "" : "s"}</span></div>
+        <div class="of-info"><span class="insignia ${o.verificado ? "verif" : "estim"}">${h(cuando)}</span><br>${h(partes.join(", ") || "Detalle en el enlace")}</div>
+        <div class="of-precio ${bajo ? "bajo" : ""}">${h(fmtPrecio(o.precio, o.moneda || mon))}</div>
+        <a class="btn btn-borde" href="${h(urlSegura(o.link))}" target="_blank" rel="noopener noreferrer">${o.verificado ? "Ver en Google Flights" : "Ver en Aviasales"}</a>
+      </li>`;
+  }).join("");
+
+  const actualizado = info?.actualizado ? `Actualizado ${haceCuanto(info.actualizado)}` : "Todavía sin búsquedas";
+  const combos = info?.combinaciones ? `, ${fmtNum(info.combinaciones)} combinaciones de fechas vigiladas` : "";
+  detalle.innerHTML = `
+    <div class="hoja">
+      <h3>${h(nombreVig(b))}</h3>
+      <p class="sub">Evolución del mejor precio total${umbral > 0 ? " frente a tu alerta" : ""}.</p>
+      ${htmlGrafico(S.historial?.[b.id], umbral, mon)}
+    </div>
+    <div class="hoja">
+      <h3>Combinaciones más baratas</h3>
+      <p class="sub">${h(actualizado + combos)}. Los precios estimados vienen del caché de Aviasales y conviene confirmarlos.</p>
+      ${filas ? `<ul class="lista-ofertas">${filas}</ul>` : `<p class="sub">${h(info?.nota || "Todavía no hay precios para esta vigilancia. Tocá «Buscar ahora» o esperá la próxima búsqueda automática.")}</p>`}
+    </div>`;
+}
+
+function pintarAjustes() {
+  if (!S.cfg) return;
+  const a = S.cfg.ajustes;
+  $("#ajMoneda").value = a.moneda || "USD";
+  $("#ajPais").value = a.pais || "";
+  $("#ajLimite").value = a.limite_mensual_serpapi ?? 240;
+  $("#ajPorRun").value = a.verificaciones_por_ejecucion ?? 3;
+
+  const s = S.estado?.serpapi || {};
+  const mesActual = new Date().toISOString().slice(0, 7);
+  const usadas = s.mes === mesActual ? (s.usadas_mes || 0) : 0;
+  const limite = Number(a.limite_mensual_serpapi) || 0;
+  const pct = limite ? Math.min(100, Math.round((usadas / limite) * 100)) : 0;
+  const restantes = S.ofertas?.ultima_ejecucion?.serpapi_restantes;
+  $("#usoSerp").innerHTML = `
+    <div class="barra-uso"><span style="width:${pct}%"></span></div>
+    <p class="sub">${fmtNum(usadas)} de ${fmtNum(limite)} verificaciones usadas este mes.${typeof restantes === "number" ? ` SerpApi informa ${fmtNum(restantes)} disponibles en tu cuenta.` : ""}</p>`;
+
+  const ue = S.ofertas?.ultima_ejecucion;
+  if (ue?.fecha) {
+    const resumen = ue.modo === "prueba"
+      ? `Prueba ${haceCuanto(ue.fecha)}.`
+      : `Búsqueda ${haceCuanto(ue.fecha)}: ${ue.vigilancias_activas ?? 0} vigilancias activas, ${ue.verificaciones ?? 0} verificaciones y ${ue.alertas_enviadas ?? 0} alertas enviadas.`;
+    const avisos = (ue.avisos || []).map((x) => `<li class="${x.nivel === "error" ? "error" : ""}">${h(x.texto)}</li>`).join("");
+    $("#ultimaEjecucion").innerHTML = `<p class="sub" style="margin-bottom:0">${h(resumen)}</p>${avisos ? `<ul class="avisos">${avisos}</ul>` : ""}`;
+  } else {
+    $("#ultimaEjecucion").innerHTML = `<p class="sub" style="margin-bottom:0">Todavía no hubo ejecuciones. Enviá una alerta de prueba para comprobar que todo está conectado.</p>`;
+  }
+  $("#linkActions").href = `https://github.com/${enc(S.usuario)}/${enc(S.repo)}/actions`;
+  $("#datoConexion").textContent = `${S.usuario}/${S.repo}`;
+}
+
+/* ================= editor ================= */
+function contarCombos(v) {
+  const sd = aFecha(v.salida_desde), sh = aFecha(v.salida_hasta), rd = aFecha(v.regreso_desde), rh = aFecha(v.regreso_hasta);
+  if (!sd || !sh || !rd || !rh) return 0;
+  const manana = new Date(); manana.setHours(0, 0, 0, 0); manana.setDate(manana.getDate() + 1);
+  const ini = sd < manana ? manana : sd;
+  const iniR = rd < manana ? manana : rd;
+  const DIA = 86400000;
+  let total = 0;
+  for (let s = ini.getTime(); s <= sh.getTime(); s += DIA) {
+    for (let r = iniR.getTime(); r <= rh.getTime(); r += DIA) {
+      const n = Math.round((r - s) / DIA);
+      if (n <= 0) continue;
+      if (v.estadia_min && n < v.estadia_min) continue;
+      if (v.estadia_max && n > v.estadia_max) continue;
+      total++;
+      if (total >= 3000) return total;
+    }
+  }
+  return total;
+}
+
+function leerEditor() {
+  const num = (id) => { const t = $(id).value.trim(); return t === "" ? null : Number(t); };
+  return {
+    origen: $("#edOrigen").value.trim().toUpperCase(),
+    destino: $("#edDestino").value.trim().toUpperCase(),
+    salida_desde: $("#edSalidaDesde").value,
+    salida_hasta: $("#edSalidaHasta").value,
+    regreso_desde: $("#edRegresoDesde").value,
+    regreso_hasta: $("#edRegresoHasta").value,
+    estadia_min: num("#edEstMin"),
+    estadia_max: num("#edEstMax"),
+    adultos: num("#edAdultos") ?? 1,
+    ninos: num("#edNinos") ?? 0,
+    escalas: $("#edEscalas").value,
+    precio_alerta: num("#edPrecio") ?? 0,
+    nombre: $("#edNombre").value.trim(),
+    activa: $("#edActiva").checked,
+  };
+}
+
+function actualizarEditor() {
+  const v = leerEditor();
+  const o = AEROPUERTOS[v.origen], d = AEROPUERTOS[v.destino];
+  $("#edCiudades").textContent = (o || d)
+    ? `${o || v.origen || "…"} → ${d || v.destino || "…"}`
+    : "Código de aeropuerto de 3 letras. Escribí y elegí de la lista.";
+  const caja = $("#edCombos");
+  if (v.salida_desde && v.salida_hasta && v.regreso_desde && v.regreso_hasta) {
+    const n = contarCombos(v);
+    caja.hidden = false;
+    caja.classList.toggle("mal", n === 0);
+    if (n === 0) caja.textContent = "Con estas fechas no queda ninguna combinación válida de ida y vuelta.";
+    else if (n >= 400) caja.textContent = `Son ${fmtNum(n)}${n >= 3000 ? " o más" : ""} combinaciones de fechas. El radar las cubre todas; la verificación en Google Flights va rotando entre ellas.`;
+    else caja.textContent = `Son ${fmtNum(n)} combinaciones de fechas de ida y vuelta.`;
+  } else {
+    caja.hidden = true;
+  }
+  $("#edMonedaNota").textContent = `En ${moneda()}, precio total para todos los pasajeros, ida y vuelta. Dejalo vacío para no recibir alertas.`;
+}
+
+function abrirEditor(id = null) {
+  S.editando = id;
+  const b = id ? S.cfg.busquedas.find((x) => x.id === id) : null;
+  const hoy = new Date();
+  const mas = (dias) => { const d = new Date(hoy); d.setDate(d.getDate() + dias); return isoLocal(d); };
+  $("#edTitulo").textContent = b ? "Editar vigilancia" : "Nueva vigilancia";
+  $("#edOrigen").value = b?.origen || "";
+  $("#edDestino").value = b?.destino || "";
+  $("#edSalidaDesde").value = b?.salida_desde || mas(30);
+  $("#edSalidaHasta").value = b?.salida_hasta || mas(37);
+  $("#edRegresoDesde").value = b?.regreso_desde || mas(44);
+  $("#edRegresoHasta").value = b?.regreso_hasta || mas(51);
+  $("#edEstMin").value = b?.estadia_min ?? "";
+  $("#edEstMax").value = b?.estadia_max ?? "";
+  $("#edAdultos").value = b?.adultos ?? 1;
+  $("#edNinos").value = b?.ninos ?? 0;
+  $("#edEscalas").value = b?.escalas || "cualquiera";
+  $("#edPrecio").value = b?.precio_alerta ? b.precio_alerta : "";
+  $("#edNombre").value = b?.nombre || "";
+  $("#edActiva").checked = b ? b.activa !== false : true;
+  $("#edErrores").textContent = "";
+  $$("#formEditor .entrada").forEach((x) => x.removeAttribute("aria-invalid"));
+  const minimo = mas(1);
+  ["#edSalidaDesde", "#edSalidaHasta", "#edRegresoDesde", "#edRegresoHasta"].forEach((s) => { $(s).min = minimo; });
+  actualizarEditor();
+  $("#editor").showModal();
+  if (!b) $("#edOrigen").focus();
+}
+
+function validar(v) {
+  const errores = [];
+  const marcar = (sel) => $(sel).setAttribute("aria-invalid", "true");
+  $$("#formEditor .entrada").forEach((x) => x.removeAttribute("aria-invalid"));
+  const manana = new Date(); manana.setDate(manana.getDate() + 1);
+  const minimo = isoLocal(manana);
+  if (!/^[A-Z]{3}$/.test(v.origen)) { errores.push("El origen debe ser un código de 3 letras."); marcar("#edOrigen"); }
+  if (!/^[A-Z]{3}$/.test(v.destino)) { errores.push("El destino debe ser un código de 3 letras."); marcar("#edDestino"); }
+  if (v.origen && v.origen === v.destino) { errores.push("El origen y el destino no pueden ser iguales."); marcar("#edDestino"); }
+  if (!v.salida_desde || !v.salida_hasta) { errores.push("Completá las fechas de ida."); marcar("#edSalidaDesde"); }
+  if (!v.regreso_desde || !v.regreso_hasta) { errores.push("Completá las fechas de vuelta."); marcar("#edRegresoDesde"); }
+  if (v.salida_hasta && v.salida_desde && v.salida_hasta < v.salida_desde) { errores.push("En la ida, «Hasta» es anterior a «Desde»."); marcar("#edSalidaHasta"); }
+  if (v.regreso_hasta && v.regreso_desde && v.regreso_hasta < v.regreso_desde) { errores.push("En la vuelta, «Hasta» es anterior a «Desde»."); marcar("#edRegresoHasta"); }
+  if (v.salida_hasta && v.salida_hasta < minimo) { errores.push("Las fechas de ida ya pasaron."); marcar("#edSalidaHasta"); }
+  if (v.estadia_min && v.estadia_max && v.estadia_min > v.estadia_max) { errores.push("La estadía mínima es mayor que la máxima."); marcar("#edEstMin"); }
+  if (!Number.isInteger(v.adultos) || v.adultos < 1 || v.adultos > 9) { errores.push("Los adultos deben ser entre 1 y 9."); marcar("#edAdultos"); }
+  if (!Number.isInteger(v.ninos) || v.ninos < 0 || v.adultos + v.ninos > 9) { errores.push("En total pueden viajar hasta 9 pasajeros."); marcar("#edNinos"); }
+  if (!(v.precio_alerta >= 0)) { errores.push("El precio de alerta no es válido."); marcar("#edPrecio"); }
+  if (!errores.length && contarCombos(v) === 0) errores.push("Con estas fechas no queda ninguna combinación válida de ida y vuelta.");
+  return errores;
+}
+
+async function guardarEditor(ev) {
+  ev.preventDefault();
+  const v = leerEditor();
+  const errores = validar(v);
+  $("#edErrores").textContent = errores.join(" ");
+  if (errores.length) return;
+  const boton = $("#edGuardar");
+  boton.disabled = true;
+  boton.textContent = "Guardando…";
+  const id = S.editando || nuevoId();
+  const registro = { id, ...v, precio_alerta: Math.round(v.precio_alerta || 0) };
+  if (!registro.estadia_min) delete registro.estadia_min;
+  if (!registro.estadia_max) delete registro.estadia_max;
+  try {
+    await guardarConfig((cfg) => {
+      const i = cfg.busquedas.findIndex((x) => x.id === id);
+      if (i >= 0) cfg.busquedas[i] = registro; else cfg.busquedas.push(registro);
+    }, `${S.editando ? "Editar" : "Crear"} vigilancia ${registro.origen}-${registro.destino}`);
+    $("#editor").close();
+    S.sel = id;
+    pintarTodo();
+    tostada("Vigilancia guardada.", "ok", { texto: "Buscar ahora", hacer: () => lanzar("buscar") });
+  } catch (e) {
+    $("#edErrores").textContent = mensajeError(e);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = "Guardar vigilancia";
+  }
+}
+
+/* ================= acciones ================= */
+async function accionVigilancia(accion, id) {
+  const b = S.cfg.busquedas.find((x) => x.id === id);
+  if (!b) return;
+  if (accion === "ver") {
+    S.sel = id;
+    irA("ofertas");
+  } else if (accion === "editar") {
+    abrirEditor(id);
+  } else if (accion === "pausar") {
+    const activa = b.activa === false;
+    try {
+      await guardarConfig((cfg) => {
+        const x = cfg.busquedas.find((y) => y.id === id);
+        if (x) x.activa = activa;
+      }, `${activa ? "Reanudar" : "Pausar"} vigilancia ${b.origen}-${b.destino}`);
+      pintarTodo();
+      tostada(activa ? "Vigilancia reanudada." : "Vigilancia pausada. No se buscará hasta que la reanudes.", "ok");
+    } catch (e) { tostada(mensajeError(e), "error"); }
+  } else if (accion === "eliminar") {
+    if (!confirm(`¿Eliminar «${nombreVig(b)}»? También se borran sus resultados.`)) return;
+    try {
+      await guardarConfig((cfg) => { cfg.busquedas = cfg.busquedas.filter((y) => y.id !== id); },
+        `Eliminar vigilancia ${b.origen}-${b.destino}`);
+      if (S.sel === id) S.sel = S.cfg.busquedas[0]?.id || null;
+      pintarTodo();
+      tostada("Vigilancia eliminada.", "ok");
+    } catch (e) { tostada(mensajeError(e), "error"); }
+  }
+}
+
+function irA(tab) {
+  S.tab = tab;
+  pintarPestanas();
+  if (tab === "vigilancias") animarFlaps($("#listaPases"));
+  if (tab === "ofertas") pintarOfertas();
+  window.scrollTo({ top: 0, behavior: reduceMov() ? "auto" : "smooth" });
+}
+
+async function guardarAjustes(ev) {
+  ev.preventDefault();
+  const pais = $("#ajPais").value.trim().toLowerCase();
+  const limite = Number($("#ajLimite").value);
+  const porRun = Number($("#ajPorRun").value);
+  if (pais && !/^[a-z]{2}$/.test(pais)) { tostada("El país debe ser un código de 2 letras, por ejemplo uy.", "error"); return; }
+  if (!Number.isInteger(limite) || limite < 0) { tostada("Las verificaciones por mes deben ser un número entero.", "error"); return; }
+  if (!Number.isInteger(porRun) || porRun < 0 || porRun > 30) { tostada("Las verificaciones por búsqueda deben estar entre 0 y 30.", "error"); return; }
+  const boton = $("#btnGuardarAjustes");
+  boton.disabled = true;
+  try {
+    await guardarConfig((cfg) => {
+      cfg.ajustes = { ...cfg.ajustes, moneda: $("#ajMoneda").value, pais, limite_mensual_serpapi: limite, verificaciones_por_ejecucion: porRun };
+    }, "Actualizar ajustes");
+    pintarTodo();
+    tostada("Ajustes guardados.", "ok");
+  } catch (e) {
+    tostada(mensajeError(e), "error");
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function conectar(ev) {
+  ev.preventDefault();
+  const usuario = $("#cxUsuario").value.trim();
+  const repo = $("#cxRepo").value.trim();
+  const token = $("#cxToken").value.trim();
+  const error = $("#cxError");
+  error.textContent = "";
+  if (!usuario || !repo || !token) { error.textContent = "Completá los tres campos."; return; }
+  const boton = $("#cxBoton");
+  boton.disabled = true;
+  boton.textContent = "Conectando…";
+  Object.assign(S, { usuario, repo, token });
+  try {
+    const info = await gh(rutaRepo());
+    S.rama = info.default_branch || "main";
+    lsSet(LS.usuario, usuario);
+    lsSet(LS.repo, repo);
+    lsSet(LS.token, token);
+    $("#cxToken").value = "";
+    mostrarApp();
+    if (info.private === false) {
+      tostada("Atención: ese repositorio es público. Tus vigilancias quedarían visibles. Hacelo privado en GitHub (Settings → General).", "error");
+    }
+  } catch (e) {
+    error.textContent = mensajeError(e);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = "Conectar";
+  }
+}
+
+async function mostrarApp() {
+  $("#vistaConexion").hidden = true;
+  $("#vistaApp").hidden = false;
+  $("#cargando").hidden = false;
+  pintarEstado();
+  try {
+    await cargarTodo();
+  } catch (e) {
+    $("#cargando").textContent = mensajeError(e);
+    if (e instanceof ErrorGH && (e.estado === 401 || e.estado === 404)) {
+      tostada(mensajeError(e), "error", { texto: "Reconectar", hacer: desconectar });
+    }
+  }
+}
+
+function mostrarConexion(mensaje = "") {
+  $("#vistaApp").hidden = true;
+  $("#vistaConexion").hidden = false;
+  $("#cxUsuario").value = S.usuario || "";
+  $("#cxRepo").value = S.repo || "radar-pasajes-motor";
+  $("#cxError").textContent = mensaje;
+  (S.usuario ? $("#cxToken") : $("#cxUsuario")).focus();
+}
+
+function desconectar() {
+  lsDel(LS.token);
+  S.token = "";
+  S.cfg = null;
+  mostrarConexion();
+}
+
+/* ================= arranque ================= */
+function iniciar() {
+  $("#aeropuertos").innerHTML = Object.entries(AEROPUERTOS)
+    .map(([c, n]) => `<option value="${c}">${h(n)}</option>`).join("");
+
+  $("#formConexion").addEventListener("submit", conectar);
+  $("#btnBuscar").addEventListener("click", () => lanzar("buscar"));
+  $("#btnPrueba").addEventListener("click", () => lanzar("prueba"));
+  $("#btnNueva").addEventListener("click", () => abrirEditor());
+  $("#formAjustes").addEventListener("submit", guardarAjustes);
+  $("#formEditor").addEventListener("submit", guardarEditor);
+  $("#formEditor").addEventListener("input", (e) => {
+    if (e.target.classList.contains("iata")) {
+      const pos = e.target.selectionStart;
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+      try { e.target.setSelectionRange(pos, pos); } catch { /* sin selección */ }
+    }
+    actualizarEditor();
+  });
+  $$("[data-cerrar]").forEach((b) => b.addEventListener("click", () => $("#editor").close()));
+  $("#btnCambiarToken").addEventListener("click", () => mostrarConexion("Pegá el token nuevo para este dispositivo."));
+  $("#btnDesconectar").addEventListener("click", () => {
+    if (confirm("¿Desconectar este dispositivo? Se borra el token guardado acá; el buscador sigue funcionando.")) desconectar();
+  });
+  $$(".pestana").forEach((b) => b.addEventListener("click", () => irA(b.dataset.tab)));
+  document.addEventListener("click", (e) => {
+    const nueva = e.target.closest("[data-accion='nueva']");
+    if (nueva) { abrirEditor(); return; }
+    const acc = e.target.closest(".pase [data-accion]");
+    if (acc) { accionVigilancia(acc.dataset.accion, acc.closest(".pase").dataset.id); return; }
+    const sel = e.target.closest("[data-sel]");
+    if (sel) { S.sel = sel.dataset.sel; pintarOfertas(); }
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && S.cfg && !S.corriendo) {
+      cargarTodo().catch(() => { /* se reintenta en la próxima visita */ });
+    }
+  });
+  setInterval(() => { if (S.cfg) pintarEstado(); }, 60000);
+  let esperaAncho = null;
+  let anchoPrevio = window.innerWidth;
+  window.addEventListener("resize", () => {
+    clearTimeout(esperaAncho);
+    esperaAncho = setTimeout(() => {
+      if (S.cfg && window.innerWidth !== anchoPrevio) { anchoPrevio = window.innerWidth; pintarOfertas(); }
+    }, 200);
+  });
+
+  S.usuario = lsGet(LS.usuario);
+  S.repo = lsGet(LS.repo);
+  S.token = lsGet(LS.token);
+  if (S.usuario && S.repo && S.token) {
+    gh(rutaRepo())
+      .then((info) => { S.rama = info.default_branch || "main"; })
+      .catch(() => { /* el error se muestra al cargar */ })
+      .finally(mostrarApp);
+  } else {
+    mostrarConexion();
+  }
+}
+
+iniciar();
+</script>
+</body>
+</html>
